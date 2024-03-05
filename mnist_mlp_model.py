@@ -10,6 +10,19 @@ def softmax(x):
     exp_x = torch.exp(x - torch.max(x, dim=1, keepdim=True).values)
     return exp_x / torch.sum(exp_x, dim=1, keepdim=True)
 
+def forward_pass(X, W1, b1, W2, b2):
+    z1 = X.view(-1, 784) @ W1 + b1
+    a1 = torch.sigmoid(z1)
+    z2 = a1 @ W2 + b2
+    return softmax(z2)
+
+def evaluate(X, Y, W1, b1, W2, b2):
+    pred = forward_pass(X, W1, b1, W2, b2)
+    loss = F.cross_entropy(pred, Y.long())
+    correct_preds = (torch.argmax(pred, dim=1) == Y.long()).float()
+    accuracy = 100.0 * correct_preds.mean().item()
+    return loss.item(), accuracy
+
 # hyperparameters
 input_size = 28*28
 output_size = 10
@@ -27,7 +40,7 @@ b2 = torch.randn(output_size, generator=g) * 0
 
 parameters = [W1, b1, W2, b2]
 # no. of parameters in total
-print(f'Total no. of parameters: ', sum(p.nelement() for p in parameters))  
+print(f'Total no. of parameters: { sum(p.nelement() for p in parameters)}')  
 for p in parameters:
     p.requires_grad = True
 
@@ -38,10 +51,7 @@ for i in range(max_steps):
     Xb, Yb = Xtr[ix], Ytr[ix]  # Xb: batch of images, Yb: batch of labels
     
     # Forward pass
-    z1 = Xb.view(-1, 784) @ W1 + b1
-    a1 = torch.sigmoid(z1)
-    z2 = a1 @ W2 + b2
-    pred = softmax(z2)
+    pred = forward_pass(Xb, W1, b1, W2, b2)
     
     # Compute loss
     loss = F.cross_entropy(pred, Yb.long())
@@ -65,28 +75,8 @@ for i in range(max_steps):
         print(f'Step {i}/{max_steps}: Loss = {loss.item():.4f}')
 
 
-# evaluation
-with torch.no_grad():
-    # Forward pass for the test set
-    z1_test = Xte.view(-1, 784) @ W1 + b1
-    a1_test = torch.sigmoid(z1_test)
-    z2_test = a1_test @ W2 + b2
-    pred_test = softmax(z2_test)
-
-    # Compute the loss on the test set
-    test_loss = F.cross_entropy(pred_test, Yte.long())
-
-    # Get the predicted labels by finding the index of the max log-probability
-    pred_labels = torch.argmax(pred_test, dim=1)
-
-    # Compare with true labels to find where predictions are correct
-    correct_preds = (pred_labels == Yte.long()).float()  # Convert to float to allow mean calculation
-    num_correct = correct_preds.sum().item()  # Total number of correct predictions
-    num_samples = Yte.size(0)  # Total number of samples
-
-    # Calculate the accuracy as percentage
-    accuracy = 100.0 * num_correct / num_samples
-
-print(f'Test Loss: {test_loss.item():.4f}')
-print(f'Correct Predictions: {num_correct}/{num_samples}')
-print(f'Accuracy: {accuracy:.2f}%')
+# Final evaluation on test and validation sets
+test_loss, test_accuracy = evaluate(Xte, Yte, W1, b1, W2, b2)
+val_loss, val_accuracy = evaluate(Xval, Yval, W1, b1, W2, b2)
+print(f'Validation Loss: {val_loss:.4f}, Accuracy: {val_accuracy:.2f}%')
+print(f'Test Loss: {test_loss:.4f}, Accuracy: {test_accuracy:.2f}%')
